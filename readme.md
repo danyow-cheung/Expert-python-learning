@@ -136,3 +136,32 @@ next(fib)
 例如，標準庫中的 tokenize 模塊從文本流中生成標記，並為每個經過處理的行返回一個迭代器，該迭代器可以傳遞給某些處
 理：
 
+#### Decorators 
+在 Python 中添加了裝飾器，以使函數和方法包裝（接收函數並返回增強函數的函數）更易於閱讀和理解。 最初的用例是能夠將方法定義為類方法或定義頭部的靜態方法。 如果沒有裝飾器語法，它將需要一個相當稀疏和重複的定義：
+```python
+class WithoutDecorators:
+  def some_static_method():
+    print('This is static method')
+  some_static_method = staticmethod(some_static_method)
+  def some_class_method(cls):
+    print('this is class method')
+  some_class_method = classmethod(some_class_method)
+
+```
+如果為了同樣的目的使用裝飾器語法，代碼會更短更容易理解：
+```python
+class WithDecorators:
+  @staticmethod
+  def some_static_method():
+    print('this is static method')
+  
+  @staticmethod
+  def some_class_method(cls):
+    print('this is class method') 
+```
+#### 一般語法和可能的實現
+裝飾器通常是一個命名對象（不允許使用 lambda 表達式），它在調用時接受單個參數（它將是裝飾函數）並返回另一個可調用對象。 這裡用“Callable”代替“function”是有預謀的。 雖然裝飾器通常在方法和函數的範圍內進行討論，但並不限於它們。 事實上，任何可調用的東西（任何實現 __call__ 方法的對像都被認為是可調用的）都可以用作裝飾器，並且它們返回的對象通常不是簡單的函數，而是實現自己的 __call__ 方法的更複雜類的更多實例。
+
+事實上，任何函數都可以用作裝飾器，因為 Python 不強制裝飾器的返回類型。 因此，使用某個函數作為接受單個參數但不返回可調用函數的裝飾器，比方說 str，在語法方面是完全有效的。 如果用戶試圖調用以這種方式裝飾的對象，這最終會失敗。 無論如何，這部分裝飾器語法為一些有趣的實驗創造了一個領域。
+##### As a function
+##### As a class 
