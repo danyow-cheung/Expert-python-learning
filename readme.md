@@ -159,9 +159,152 @@ class WithDecorators:
   def some_class_method(cls):
     print('this is class method') 
 ```
-#### 一般語法和可能的實現
+#####  一般語法和可能的實現
 裝飾器通常是一個命名對象（不允許使用 lambda 表達式），它在調用時接受單個參數（它將是裝飾函數）並返回另一個可調用對象。 這裡用“Callable”代替“function”是有預謀的。 雖然裝飾器通常在方法和函數的範圍內進行討論，但並不限於它們。 事實上，任何可調用的東西（任何實現 __call__ 方法的對像都被認為是可調用的）都可以用作裝飾器，並且它們返回的對象通常不是簡單的函數，而是實現自己的 __call__ 方法的更複雜類的更多實例。
 
 事實上，任何函數都可以用作裝飾器，因為 Python 不強制裝飾器的返回類型。 因此，使用某個函數作為接受單個參數但不返回可調用函數的裝飾器，比方說 str，在語法方面是完全有效的。 如果用戶試圖調用以這種方式裝飾的對象，這最終會失敗。 無論如何，這部分裝飾器語法為一些有趣的實驗創造了一個領域。
-##### As a function
-##### As a class 
+###### Decorator does not even need to return a callable!
+裝飾器甚至不需要返回可調用對象！
+
+###### As a function
+編寫自定義裝飾器的方法有很多種，但最簡單的方法是編寫一個返回包裝原始函數調用的子函數的函數。
+通用模式如下：
+```python
+def mydecorator(function):
+  # do something
+  result = func(args,**kwargs)
+  return result 
+return wrapped
+```
+###### As a class 
+```python
+class DecoratorAsClass:
+  def __init__(self,func):
+    self.func = func 
+  def __call__(self,args,*kwargs):
+    result = self.func(args,*kwargs)
+    return result 
+```
+###### Parametrizing decorators
+參數化裝飾器
+在實際代碼中，經常需要使用可以參數化的裝飾器。 當函數用作裝飾器時，
+解決方案很簡單——必須使用第二層包裝。 下面是裝飾器的一個簡單示例，它在每次調用時重複執行裝飾函數指定的次數：
+```python
+def repeat(number=3):
+  def actual_decorator(func):
+    def wrapper(args,*kwargs):
+      result = None 
+      for _ in range(number):
+        result = func(args,*kwargs)
+      return result 
+    return wrapper 
+  return actual_decorator
+
+@repeat(2)
+def foo():
+  print(1)
+foo()
+>>> foo
+>>> foo
+```
+###### Introspection preserving decorators
+自省保護裝飾器
+
+使用裝飾器的常見缺陷是在使用裝飾器時不保留函數元數據（主要是文檔字符串和原始名稱）。 前面的例子都有這個問題。 他們通過組合創建了一個新函數並返回了一個新對象，而不考慮原始對象的身份。 這使得以這種方式裝飾的函數的調試更加困難，並且還會破壞大多數可能使用的自動文檔工具，因為原始文檔字符串和函數簽名不再可訪問。
+但是讓我們詳細看看這個。 假設我們有一些虛擬裝飾器，它只做裝飾和用它裝飾的其他一些功能：
+
+簡單來說就是，寫成這樣，就可以不丟掉元數據
+```python
+from functools import wraps 
+def preserving_decorator(func):
+  @wraps(function)
+  def wrapped(args,*kwargs):
+    '''Internal wrapped function documentation'''
+    return function(args,*kwargs)
+  return wrapped 
+@preserving_decorator()
+def function_with_important_docstring():
+  '''This is import docstring we do not want to loss '''
+print(function_with_important_docstring.__name__)
+print(function_with_important_docstring.__doc__)
+
+```
+
+
+#####  Usage and useful examples用法和有用的例子
+由於裝飾器是在首次讀取模塊時由解釋器加載的，因此它們的使用應僅限於可以普遍應用的包裝器。 如果裝飾器綁定到方法的類或它增強的函數的簽名，則應將其重構為常規可調用對像以避免複雜性。 無論如何，當裝飾器處理 API 時，一個好的做法是將它們分組到一個易於維護的模塊中。
+裝飾器的常見模式是：
+- 參數檢查
+- 緩存
+- 代理人
+- 上下文提供
+  
+###### Caching 緩存
+緩存裝飾器與參數檢查非常相似，但側重於那些內部狀態不影響輸出的函數。 每組參數都可以鏈接到一個唯一的結果。 這種編程風格是函數式編程的特點（參考http://en.wikipedia.org/wiki/Functional_programming），可以在輸入值集合有限的情況下使用。
+因此，緩存裝飾器可以將輸出與計算它所需的參數保存在一起，並在後續調用中直接返回。 這種行為稱為記憶化（請參閱 http://en.wikipedia.org/wiki/Memoizing）並且作為裝飾器實現起來非常簡單：
+> caching_decorator.py
+
+緩存昂貴的函數可以顯著提高程序的整體性能，但必須謹慎使用。 
+緩存值也可以綁定到函數本身以管理其範圍和生命週期，而不是集中式字典。 
+但無論如何，更高效的裝飾器將使用基於高級緩存算法的專用緩存庫。
+
+###### Proxy 代理 
+代理裝飾器用於使用全局機制標記和註冊函數。
+例如，根據當前用戶保護代碼訪問的安全層可以使用具有可調用對象所需的關聯權限的集中式檢查器來實現：
+> proxy_decorator.py
+
+###### Context provider 上下文裝飾
+上下文裝飾器確保函數可以在正確的上下文中運行，或者在函數前後運行一些代碼。 換句話說，它設置和取消設置特定的執行環境。 例如，當一個數據項必須在多個線程之間共享時，必須使用鎖來確保它免受多次訪問。 這個鎖可以在裝飾器中編碼如下：
+> context_provider_decorator.py 
+
+
+#### Context managers -- the with statement 上下文管理器——with 語句
+
+try...finally 語句可用於確保即使出現錯誤也能運行一些清理代碼。 這有很多用例，例如：
+- Closing a file 關閉文件
+- Releasing a lock 釋放鎖
+- Making a temporary code patch 製作臨時代碼補丁
+- Running protected code in a special environment 在特殊環境中運行受保護的代碼
+
+with 語句通過提供一種包裝代碼塊的簡單方法來排除這些用例。 這允許您在塊執行之前和之後調用一些代碼，即使此塊引發異常也是如此。 例如，使用文件通常是這樣完成的：
+```python 
+hosts = open('demo.txt')
+'''Method 1'''
+try:
+  for line in hosts:
+    if line.startswith('#'):
+      continue 
+    print(line.strip())
+  finally:
+    hosts.close()
+'''Method 2'''
+with open('demo.txt') as hosts:
+  for line in hosts:
+    if line.startswith('#'):
+      continue 
+    print(line.strip)
+```
+
+##### General syntax and possible implementation 一般語法和可能的實施
+`with`語句的用法有
+1. 
+```python
+with context_manager:
+  #block of code 
+```
+2. 
+```python
+with context_manager as context:
+  # block of code
+```
+3. 
+```python
+with A() as a ,B() as b:
+  ...
+```
+4. 
+```python
+with A() as a:
+  with B() as b:
+    ...
+```
