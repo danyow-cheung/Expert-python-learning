@@ -220,13 +220,70 @@ class ClassWithAMetaclass(metaclass=type):
 > chapter3/metaclass_template.py
 
 #### New python3 syntax for mataclasses 
+python3 使用元类的正确打开方式
+```python
+class ClassWithAMetaclass(metaclass=type):
+    pass
+```
 #### Metaclass usage 
-#### Metaclass pitfalls 
+元类一旦掌握是一个强大的功能，但总是使代码复杂化。 它们还可能降低旨在用于任何类型类的代码的健壮性。 
 
+元类通常可以用其他更简单的方法替换也是事实，但在某些情况下，如果没有元类，事情就无法轻松完成。
+#### Metaclass pitfalls 
+unittest.mock 模块中提供的 Mock 类的实例就是这样一个可以是任何地方的对象。 Mock 不是元类，也不从类型类继承。 
+它也不会在实例化时返回类对象。 尽管如此，它仍可以作为元类关键字参数包含在类定义中，这不会引发任何问题，尽管这样做毫无意义：
+```python
+from unittest.mock import Mock 
+class Nonsense(metaclass=Mock):
+    # pointless, but illustrative
+    pass 
+```
 ### Some tips on code generation
+各种项目，如 Hy（稍后提到）表明，甚至可以使用代码生成技术在 Python 中重新实现整个语言。 这证明了可能性实际上是无限的。 
+知道这个主题有多么广泛，以及它充满各种陷阱的程度有多么严重，我什至不会尝试就如何以这种方式创建代码或提供有用的代码示例提供详细建议。
+
+不管怎样，如果你打算自己深入研究这个领域，知道什么是可能的可能对你有用。 因此，将本节仅作为进一步学习的可能起点的简短摘要。 其中大部分都带有许多警告，以防您急于在自己的项目中调用 exec() 和 eval()。
+
 #### exec,eval and compile 
+python内部有内置函数对exec，eval和compile进行操作。
+但是有危险，谨慎使用哈
+
 #### Abstract syntax tree 
-##### Import hooks
+Python 语法在编译为字节码之前被转换为抽象语法树 (AST)。 这是源代码的抽象句法结构的树形表示。
+
+由于内置的 ast 模块，Python 语法的处理是可用的。 
+可以使用带有 ast.PyCF_ONLY_AST 标志的 compile() 函数或使用 ast.parse() 助手来创建 Python 代码的原始 AST。
+```bash 
+>>> tree = ast.parse('def hello_world(): print("hello world!")')
+>>> tree
+<_ast.Module object at 0x00000000038E9588>
+>>> ast.dump(tree)
+"Module(
+    body=[
+        FunctionDef(
+           name='hello_world',
+           args=arguments(
+               args=[],
+               vararg=None,
+               kwonlyargs=[],
+               kw_defaults=[],
+               kwarg=None,
+               defaults=[]
+), body=[
+               Expr(
+                .........
+```
+
 #### Projects using code generation patterns 
+很难找到依赖于代码生成模式的库的真正可用的实现，而不仅仅是实验或简单的概念证明。 造成这种情况的原因相当明显：
+- 对 exec() 和 eval() 函数的恐惧是当之无愧的，因为如果不负责任地使用它们，它们可能会导致真正的灾难
+- 成功的代码生成非常困难，因为它通常需要对特色语言有深刻的理解和出色的编程技能
+尽管存在这些困难，但仍有一些项目成功地采用这种方法来提高性能或实现其他方法无法实现的目标。
+
 ##### Falcon's compiled router 
+Falcon 是一个极简主义的 Python WSGI Web 框架，用于构建快速和轻量级的 API。
 ##### Hy 
+Hy是完全用 Python 编写的 Lisp 方言。 
+许多在 Python 中实现其他代码的类似项目通常只尝试对作为类文件对象或字符串提供的纯代码形式进行标记，
+并将其解释为一系列显式 Python 调用。与其他语言不同，Hy 可以被认为是一种完全在 Python 运行时环境中运行的语言，
+就像 Python 一样。 用 Hy 编写的代码可以使用现有的内置模块和外部包，反之亦然。 使用 Hy 编写的代码可以导入回 Python。
