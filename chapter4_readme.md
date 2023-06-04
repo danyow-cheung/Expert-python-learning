@@ -73,8 +73,23 @@ class Citizen(object):
 ```
 另一个例子是保持内部状态的变量。 这个值是
 对其余代码没有用，但参与类的行为
+```python
+class UnforgivingElephant(object):
+    def __init__(self,name):
+        self.name = name 
+        self._people_to_stopm_on = []
+    def get_slapped_by(self,name):
+        self._people_to_stomp_on.append(name)
+        print("Ouch")
+    def revenge(self):
+        print("10 years later")
+        for person in self._people_to_stomp_on:
+            print('%s stomps on %s' % (self.name, person))
+```
 
 #### Functions and methods 
+函数和方法应使用小写字母并带有下划线。 在旧的标准库模块中，这条规则并不总是正确的。 Python 3 对标准库做了很多重组，所以它的大部分函数和方法都有一个一致的大小写。 不过，对于某些模块（如线程），您可以访问使用混合大小写的旧函数名称（例如，currentThread）。 这是为了更容易向后兼容，但如果您不需要在旧版本的 Python 中运行您的代码，那么您应该避免使用这些旧名称。
+
 #### The private controversy
 #### Special methods 
 #### Arguments
