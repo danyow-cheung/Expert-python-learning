@@ -134,14 +134,45 @@ setup(
 
 
 #### The custom setup command 
-#### Working with packages during development 
-##### setup.py install 
-##### Uninstalling packages 
-##### setup.py develop or pip-e 
+distutils 允許您創建新命令。 可以使用入口點註冊新命令，這是由 setuptools 引入的一種將包定義為插件的簡單方法。
+入口點是指向類或函數的命名鏈接，可通過 setuptools 中的某些 API 獲得。 任何應用程序都可以掃描所有已註冊的包並將鏈接的代碼用作插件。
 
+#### Working with packages during development 
+使用 setuptools 主要是關於構建和分發包。 但是，您仍然需要知道如何使用它們直接從項目源安裝包
+
+此外，在同時處理多個相關包時，使用 setuptools 直接從您自己的源進行安裝可能是必不可少的。
+
+##### setup.py install 
+安裝包時，除了裸 setup.py 腳本之外，另一種方法是使用 pip。
+由於它是 PyPA 推薦的工具，因此即使出於開發目的在本地環境中安裝包時也應該使用它。 
+要從本地源安裝包，請運行以下命令：
+`pip install <project-patch>`
+
+
+
+##### setup.py develop or pip-e 
+使用 setup.py install 安裝的包將復製到當前環境的站點包目錄中。 這意味著每當您更改該軟件包的源代碼時，您都需要重新安裝它
+
+這就是為什麼 setuptools 提供了一個額外的開發命令，允許我們在開發模式下安裝包。 
+此命令在部署目錄（站點包）中創建一個指向項目源的特殊鏈接，而不是將整個包複製到那裡。 
+無需重新安裝即可編輯包源，並且它在 sys.path 中可用，因為它是正常安裝的。
+
+
+pip 還允許以這種模式安裝包。 此安裝選項稱為可編輯模式，可以在安裝命令中使用 -e 參數啟用：
+`pip install -e <project-path>`
 
 ### Namespace packages 
+這至少可以從兩個方面來理解。 第一個是語言上下文中的名稱空間。 我們都在不知道的情況下使用命名空間：
+- 模塊的全局命名空間
+- 函數或方法調用的本地命名空間
+- 內置名稱的命名空間
+另一種名稱空間可以在打包級別提供。 
+這些是命名空間包。 這通常是一個被忽視的特性，它對於在您的組織或一個非常大的項目中構建包生態系統非常有用。
+
 #### Why is it useful 
+With namespace packages, you can store the source tree for each of these subpackages independently:
+使用命名空間包，您可以獨立存儲每個子包的源代碼樹：
+
 #### PEP 420 - implict namespace packages 
 #### Namespace packages in previous python versions 
 
