@@ -174,13 +174,87 @@ With namespace packages, you can store the source tree for each of these subpack
 使用命名空間包，您可以獨立存儲每個子包的源代碼樹：
 
 #### PEP 420 - implict namespace packages 
-#### Namespace packages in previous python versions 
+PEP 420 (Implicit Namespace Packages)
 
 ### Uploading a package 
+Python Packaging Index 是 Python 社區開源包的主要來源。 任何人都可以自由上傳新包，唯一的要求是在 PyPI 網站上註冊
+
 #### PyPI -Python Package Index 
+the official source of open source package distributions. 
+
 ##### Uploading to PyPI - or other package index 
+任何人都可以註冊並將包上傳到 PyPI，前提是他或她已經註冊了一個帳戶。 包綁定到用戶，
+上傳命令 
+`python setup.py <dist-command> upload`
+此處，<dist-commands> 是創建要上傳的分發的命令列表。 
+只有在同一 setup.py 執行期間創建的分發才會上傳到存儲庫。
+因此，如果您要一次上傳源代碼分發、構建分發和 wheel 包，則需要發出以下命令：
+`python setup.py sdist bdist bdist_wheel upload`
+
 ##### .pypirc 
+.pypirc 是一個配置文件，用於存儲有關 Python 包存儲庫的信息。 它應該位於您的主目錄中。 該文件的格式如下：
+```
+[distutils]
+index-servers =
+pypi other
+[pypi]
+repository: <repository-url>
+username: <username>
+password: <password>
+[other]
+repository: https://example.com/pypi
+username: <username>
+password: <password>
+```
 #### Source packages versus built packages 
+源代碼分發是最簡單且最獨立於平台的。 對於純 Python 包，這是一個明智的選擇。 這樣的發行版僅包含 Python 源代碼，並且這些源代碼應該已經具有高度可移植性。
+更複雜的情況是當你的包引入了一些擴展，例如，用 C 編寫的。源代碼分發仍然可以工作，前提是包用戶在他/她的環境中有一個合適的開發工具鏈。 這主要由編譯器和適當的 C 頭文件組成。 對於這種情況，構建的分發格式可能更適合，因為它可以為特定平台提供已經構建的擴展。
+
 ##### sdist 
+sdist 命令是最簡單的可用命令。 它創建了一個發布樹，其中復制了運行包所需的一切。 然後將這棵樹歸檔在一個或多個歸檔文件中（通常，它只創建一個 tarball）。 存檔基本上是源代碼樹的副本。
+
 ##### bdist and wheels 
 
+當必須創建一些 C 擴展時，構建過程使用系統
+編譯器和 Python 頭文件 (Python.h)。 從源代碼構建 Python 時就可以使用此包含文件。 
+對於打包發行版，您的系統發行版可能需要一個額外的包。
+至少在流行的 Linux 發行版中，它通常被命名為 python-dev。 它包含構建 Python 擴展所需的所有頭文件。
+
+
+使用的C編譯器是系統編譯器。 對於基於 Linux 的系統或 Mac OS X，這將分別是 gcc 或 clang。 對於 Windows，可以使用 Microsoft Visual C++（有一個免費的命令行版本可用），也可以使用開源項目 MinGW。 這可以在 distutils 中配置。
+
+bdist 命令使用 build 命令來構建二進制分發版。 它調用構建和所有相關命令，然後以與 sdist 相同的方式創建一個存檔。
+
+### Standalone executables 
+在涵蓋 Python 代碼打包的材料中，創建獨立的可執行文件是一個經常被忽視的主題。 這主要是因為 Python 在其標準庫中缺少適當的工具，這些工具可以讓程序員創建簡單的可執行文件，用戶無需安裝 Python 解釋器即可運行。
+
+Python 代碼作為一個包分發時，需要 Python 解釋器才能運行。 這給技術水平不夠的用戶帶來了很大的不便。
+
+#### When are standalone executables useful 
+在用戶體驗的簡單性比用戶干擾應用程序代碼的能力更重要的情況下，獨立可執行文件很有用。 請注意，將應用程序分發為可執行文件這一事實只會增加代碼閱讀或修改的難度——並非不可能。 它不是一種保護應用程序代碼的方法，只能用作簡化與應用程序交互的一種方法。
+
+獨立可執行文件通常是以下情況的不錯選擇：
+- 依賴特定 Python 版本的應用程序可能不容易在目標操作系統上使用
+- 依賴於經過修改的預編譯 CPython 源代碼的應用程序 
+- 具有圖形界面的應用程序
+- 具有許多用不同語言編寫的二進制擴展的項目 
+- 遊戲
+
+#### Popular tools 
+- PyInstaller 
+- cx Freeze
+- py2exe and py2app 
+
+#### Security of Python code in executable packages 
+重要的是要知道獨立的可執行文件不會以任何方式使應用程序代碼安全。 從這樣的可執行文件中反編譯出嵌入的代碼不是一件容易的事，但肯定是可以做到的。 更重要的是，這種反編譯的結果（如果使用適當的工具完成）可能看起來與原始來源驚人地相似。
+
+這一事實使得獨立的 Python 可執行文件不是封閉源項目的可行解決方案，因為應用程序代碼的洩漏可能會損害組織。 因此，如果僅通過複製應用程序的源代碼就可以復制整個業務，那麼您應該考慮其他方式來分發應用程序。 也許提供軟件即服務對您來說是更好的選擇。
+
+##### Making decompilation harder 
+如前所述，目前還沒有可靠的方法來保護應用程序不被反編譯。 儘管如此，還是有一些方法可以讓這個過程變得更難。 但更難並不意味著可能性更小。 對於我們中的一些人來說，最誘人的挑戰是最艱難的挑戰。 我們都知道，這項挑戰的最終獎品非常高：您試圖保護的代碼。
+通常反編譯的過程包括幾個步驟：
+1. 從獨立的可執行文件中提取項目的字節碼二進製表示。
+2. 將二進製表示映射到特定 Python 版本的字節碼。
+3. 將字節碼翻譯成 AST。
+4. 直接從 AST 重新創建資源。
+5. 
