@@ -25,3 +25,11 @@
 ### Operations 
 
 ## Making your own portfolio
+### Building the landscape 
+#### Producer's layout 
+#### Consumer's layout 
+##### Working on the index pages
+##### Registering module helpers
+##### Adding index markers 
+##### Cross-references
+### Documentation building and continuous intergration
