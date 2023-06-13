@@ -132,9 +132,35 @@ with-doctest=1
 doctest-exetension=.txt
 ```
 #### py.test
+py.test 與鼻子非常相似。 事實上，後者的靈感來自 py.test，因此我們將主要關注使這些工具彼此不同的細節。 該工具是作為名為 py 的更大包的一部分而誕生的，但現在它們是單獨開發的。
+與本書中提到的每個第三方包一樣，py.test 在 PyPI 上可用，並且可以使用 pip 作為 pytest 安裝：
+`pip install pytest`
+從那裡，一個新的 py.- test 命令在提示符下可用，可以像 nosetests 一樣使用。 該工具使用類似的模式匹配和測試發現算法來捕獲要運行的測試。 該模式比 nose 使用的模式更嚴格，只會捕獲：
+- 以 Test 開頭的類，在以 test 開頭的文件中 
+- 以 test 開頭的函數，在以 test 開頭的文件中
 
 ##### Writing test fixtures
+py.test 支持兩種機制來處理固定裝置。 第一個，仿照 xUnit 框架，類似於 nose。 當然語義有點不同。 py.test 將在每個測試模塊中查找三個級別的固定裝置，如下例所示：
+
+每個函數都將獲取當前模塊、類或方法作為參數。 因此，測試夾具將能夠在上下文中工作而無需查找它，就像鼻子一樣。
+
+用 py.test 編寫固定裝置的替代機制是建立在
+依賴注入的概念，允許以更加模塊化和可擴展的方式維護測試狀態。 非 xUnit 風格的固定裝置（設置/拆卸過程）始終具有唯一的名稱，需要通過在類中的測試函數、方法和模塊中聲明它們的使用來顯式激活。
+
 ##### Disabling test functions and classess
+py.test 提供了一種在特定條件下禁用某些測試的簡單機制。 這稱為跳過，pytest 包為此提供了 .skipif 裝飾器。 如果需要在某些條件下跳過單個測試函數或整個測試類裝飾器，則需要使用此裝飾器定義它，並提供一些值來驗證是否滿足預期條件。 這是官方文檔中的一個示例，它跳過了在 Windows 上運行整個測試用例類：
+```python
+import pytest
+@pytest.mark.skipif(
+    sys.platform=='win32',
+    reason = 'does not run on windows'
+)
+class TestPosixCalls:
+    def test_function(self):
+        pass
+        '''Will not be setup or run under win32 platform'''
+```
+使用 xfail 比 skipif 嚴格得多。 測試始終執行，如果它沒有按預期失敗，那麼整個 py.test 運行將導致失敗。
 ##### Automated distributed tests
 ##### Wrap-up
 
