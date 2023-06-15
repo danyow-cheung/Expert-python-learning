@@ -35,3 +35,22 @@ class Throttle:
 # 並將其作為位置參數傳遞給每個工作線程。 在不同的線程中使用相同的數據結構是安全的，
 # 因為我們使用線程模塊中 Lock 類的實例來保護對其內部狀態的操作。 
 # 我們現在可以更新 worker() 函數實現以等待每個項目，直到 throttle 釋放新令牌：
+
+def worker(work_queue,results_queue,throttle):
+    while True:
+        try:
+            item = work_queue.get(block=False)
+        except Empty:
+            break
+        else:
+            while not throttle.consume():
+                pass 
+            try:
+                result = fetch_place(item)
+            except Exception as err:
+                results_queue.put(err)
+            else:
+                results_queue.put(result)
+            finally:
+                work_queue.task_done()
+                
