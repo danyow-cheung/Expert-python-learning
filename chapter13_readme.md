@@ -84,16 +84,70 @@
 from gmaps import Geocoding
 api = Geocoding
 geocoded = api.geocode('Warsaw')[0]
-
 ```
+由於我們的目標是展示並發問題的多線程解決方案與標準同步解決方案的比較，我們將從根本不使用線程的實現開始。 以下是循環遍歷城市列表、查詢 Google Maps API 並在文本格式的表格中顯示有關其地址和坐標的信息的程序代碼：
+> chapter13/googlemap.py
+
+
 ##### Using one thread per item
+現在是改進的時候了。 我們在 Python 中沒有做很多處理，執行時間長是與外部服務通信造成的。 我們向服務器發送一個 HTTP 請求，它計算出答案，然後我們等待響應傳回。 涉及很多 I/O，因此多線程似乎是一個可行的選擇。 我們可以在單獨的線程中同時啟動所有請求，然後等待它們接收數據。 如果我們正在與之通信的服務能夠同時處理我們的請求，我們肯定會看到性能提升。
+因此，讓我們從最簡單的方法開始。 Python 通過 threading 模塊為系統線程提供乾淨且易於使用的抽象。 這個標準庫的核心是代表單個線程實例的 Thread 類。 這是 main() 函數的修改版本，它為每個要地理編碼的地方創建並啟動一個新線程，然後等待所有線程完成：
+> chapter13/googlemap_thread.py
 
 ##### Using a thread pool
+我們將嘗試解決的第一個問題是我們程序運行的線程的未綁定限制。 一個好的解決方案是構建一個嚴格定義大小的線程工作線程池，它將處理所有並行工作並通過一些線程安全的數據結構與工作線程通信。 通過使用這種線程池方法，我們還可以更輕鬆地解決我們剛才提到的另外兩個問題。
+
+所以一般的想法是啟動一些預定義數量的線程，這些線程將消耗隊列中的工作項直到完成。 當沒有其他工作要做時，線程會返回，我們就可以退出程序了。 我們的結構用於與工作人員通信的一個很好的候選者是內置隊列模塊中的 Queue 類。 它是一個 FIFO（先進先出）隊列實現，與 collections 模塊中的 deque 集合非常相似，專門設計用於處理線程間通信。 這是 main() 函數的修改版本，它僅以新的 worker() 函數作為目標啟動有限數量的工作線程，並使用線程安全隊列與它們通信：
+> chapter13/googlemap_queue.py
+
+運行時間將比每個參數一個線程的情況慢，但至少現在不可能用任意長輸入耗盡所有計算資源。 此外，我們可以調整 THREAD_POOL_SIZE 參數以獲得更好的資源/時間平衡。
 
 ##### Using two-way queues
+我們現在能夠解決的另一個問題是線程中輸出的潛在問題打印。 將這樣的責任留給啟動其他線程的主線程會好得多。 我們可以通過提供另一個隊列來處理這個問題，該隊列負責從我們的工作人員那裡收集結果。 這是完整的代碼，將所有內容與突出顯示的主要更改放在一起：
+> chapter13/googlemap_two_way_queue.py
 
 ##### Dealing with errors and rate limiting
+您在處理此類問題時可能遇到的最後一個問題是外部服務提供商強加的速率限制。 就 Google Maps API 而言，在撰寫本書時，免費和未經身份驗證的請求的官方速率限制為每秒 10 次請求和每天 2,500 次請求。 當使用多線程時，很容易耗盡這樣的限制。 由於我們尚未涵蓋任何故障場景，因此問題更加嚴重，並且在多線程 Python 代碼中處理異常比平時要復雜一些。
 
+當客戶端超過 Google 的速率時，api.geocode() 函數將引發異常，這是個好消息。 但是這個異常是單獨拋出的，不會讓整個程序崩潰。 工作線程當然會立即退出，但主線程會等待存儲在 work_queue 上的所有任務完成（使用 work_queue.join() 調用）。 這意味著我們的工作線程應該優雅地處理可能的異常，並確保隊列中的所有項目都得到處理。 如果不進一步改進，我們可能會遇到一些工作線程崩潰並且程序永遠不會退出的情況。
+
+讓我們對代碼做一些小改動，以便為可能發生的任何問題做好準備。 在工作線程中出現異常的情況下，我們可能會在 results_queue 隊列中放入一個錯誤實例並將當前任務標記為已完成，這與我們在沒有錯誤的情況下所做的相同。 這樣我們就可以確保主線程在等待 work_queue.join() 時不會無限期地鎖定。 然後主線程可能會檢查結果並重新引發在結果隊列中發現的任何異常。 以下是 worker() 和 main() 函數的改進版本，可以更安全地處理異常：
+```python
+# 原始
+def worker(work_queue):
+    while not work_queue.empty():
+        try:
+            item = work_queue.get(block=False)
+        except Empty:
+            break 
+        else:
+            fetch_place(item)
+            work_queue.task_done()
+
+# 修改
+def worker(work_queue):
+    while not work_queue.empty():
+        try:
+            item = work_queue.get(block=False)
+        except Empty:
+            break 
+        else:
+            try:
+
+                result = fetch_place(item)
+            except Exception as err:
+                results_queue.put(err)
+            else:
+                results_queue.put(result)
+            finally:
+                work_queue.task_done()
+```
+
+模仿工作節奏通常被稱為節流。 PyPI 上有一些包可以讓你限制任何類型工作的速度，而且非常容易
+使用。 但我們不會在這裡使用任何外部代碼。 節流是為線程引入一些鎖定原語的好機會，因此我們將嘗試從頭開始構建解決方案。
+
+兩件重要的事情是始終用零個令牌初始化令牌桶，並且永遠不允許它填充更多可用的令牌，這些令牌按照我們的標準時間量以其速率表示，以令牌表示。 如果我們不遵循這些預防措施，我們可能會以超過速率限制的方式釋放令牌。 因為在我們的情況下，速率限制以每秒請求數表示，所以我們不需要處理任意數量的時間。 我們假設測量的基數是一秒，因此我們存儲的令牌永遠不會超過該時間段允許的請求數。 下面是允許使用令牌桶算法進行節流的類的示例實現：
+> chapter13/token_bucket.py
 ## Multiprocessing
 ### The built-in multiprocessing module
 #### Using process pools
